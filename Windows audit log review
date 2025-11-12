@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     This script searches through the Windows Event Log (Security by default)
-    for entries containing a specific process name or keyword (e.g. "broccoli.exe").
+    for entries containing a specific process name or keyword (e.g. "Netwrix.exe").
     It exports matching results to a timestamped CSV file.
 
 .PARAMETER ProgramName
@@ -29,7 +29,7 @@ param(
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $outputFile = "$env:USERPROFILE\Desktop\AuditLogs_$($ProgramName)_$($timestamp).csv"
 
-Write-Host "Searching Windows Event Log: $LogName for keyword: '$ProgramName'..." -ForegroundColor Cyan
+Write-Host "Searching Windows Event Log: $LogName for keyword: '$ProgramName'..."
 
 try {
     # Get relevant log entries (you can adjust MaxEvents to go deeper)
@@ -39,12 +39,12 @@ try {
     if ($events) {
         $filtered = $events | Select-Object TimeCreated, Id, LevelDisplayName, Message
         $filtered | Export-Csv -Path $outputFile -NoTypeInformation
-        Write-Host "Found $($filtered.Count) matching events. Exported to $outputFile" -ForegroundColor Green
+        Write-Host "Found $($filtered.Count) matching events. Exported to $outputFile"
     }
     else {
-        Write-Host "No matching events found for '$ProgramName' in $LogName." -ForegroundColor Yellow
+        Write-Host "No matching events found for '$ProgramName' in $LogName."
     }
 }
 catch {
-    Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "Error: $($_.Exception.Message)"
 }
