@@ -1,0 +1,50 @@
+<#
+.SYNOPSIS
+    Checks Windows Security Audit logs for events related to a specific program or keyword.
+
+.DESCRIPTION
+    This script searches through the Windows Event Log (Security by default)
+    for entries containing a specific process name or keyword (e.g. "broccoli.exe").
+    It exports matching results to a timestamped CSV file.
+
+.PARAMETER ProgramName
+    The name or keyword of the program to search for in event messages.
+
+.PARAMETER LogName
+    The Windows Event Log to search (default is "Security"). Sometimes applications make their own logs. 
+replace security with the name of the windows log name.
+
+.EXAMPLE
+    .\Check-AuditLogs.ps1 -ProgramName "netwrix.exe"
+#>
+
+param(
+    [Parameter(Mandatory=$true)]
+    [string]$ProgramName,
+
+    [string]$LogName = "Security"
+)
+
+# Output path for results
+$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$outputFile = "$env:USERPROFILE\Desktop\AuditLogs_$($ProgramName)_$($timestamp).csv"
+
+Write-Host "Searching Windows Event Log: $LogName for keyword: '$ProgramName'..." -ForegroundColor Cyan
+
+try {
+    # Get relevant log entries (you can adjust MaxEvents to go deeper)
+    $events = Get-WinEvent -LogName $LogName -MaxEvents 2000 |
+        Where-Object { $_.Message -match $ProgramName }
+
+    if ($events) {
+        $filtered = $events | Select-Object TimeCreated, Id, LevelDisplayName, Message
+        $filtered | Export-Csv -Path $outputFile -NoTypeInformation
+        Write-Host "Found $($filtered.Count) matching events. Exported to $outputFile" -ForegroundColor Green
+    }
+    else {
+        Write-Host "No matching events found for '$ProgramName' in $LogName." -ForegroundColor Yellow
+    }
+}
+catch {
+    Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
+}
