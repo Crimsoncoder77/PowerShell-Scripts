@@ -1,0 +1,87 @@
+<#
+.SYNOPSIS
+    Checks current Windows audit policy settings and verifies they meet expected audit baselines.
+
+.DESCRIPTION
+    This script reads the system’s effective audit policies (which include Group Policy settings)
+    and compares them against expected values you define.
+    It reports any discrepancies to help verify auditing is correctly enforced.
+
+.PARAMETER BaselineFile
+    Path to a CSV file that defines expected audit categories and subcategories with desired settings.
+
+.EXAMPLE
+    .\Check-AuditPolicyCompliance.ps1 -BaselineFile ".\AuditBaseline.csv"
+
+.NOTES
+    Run as Administrator for accurate results.
+#>
+
+param(
+    [Parameter(Mandatory = $true)]
+    [string]$BaselineFile
+)
+
+Write-Host "Checking current audit policies..." -ForegroundColor Cyan
+
+# Retrieve effective audit policy
+$currentAudit = auditpol /get /category:* | Out-String
+
+# Parse into structured PowerShell objects
+$currentAuditLines = $currentAudit -split "`n" | Where-Object {$_ -match '\S'}
+$currentPolicies = @()
+
+foreach ($line in $currentAuditLines) {
+    if ($line -match '^(.*?)\s{2,}(Success|Failure|Success and Failure|No Auditing)$') {
+        $subcategory = $matches[1].Trim()
+        $setting = $matches[2].Trim()
+        $currentPolicies += [PSCustomObject]@{
+            Subcategory = $subcategory
+            Setting     = $setting
+        }
+    }
+}
+
+if (-not $currentPolicies) {
+    Write-Host "Could not parse audit policy. Try running PowerShell as Administrator."
+    exit
+}
+
+# Import baseline expectations
+try {
+    $baseline = Import-Csv -Path $BaselineFile
+} catch {
+    Write-Host "Failed to load baseline file: $($_.Exception.Message)"
+    exit
+}
+
+# Compare current vs expected
+$results = @()
+
+foreach ($base in $baseline) {
+    $match = $currentPolicies | Where-Object { $_.Subcategory -eq $base.Subcategory }
+    if ($match) {
+        $compliant = $match.Setting -eq $base.ExpectedSetting
+        $results += [PSCustomObject]@{
+            Subcategory    = $base.Subcategory
+            Expected       = $base.ExpectedSetting
+            Actual         = $match.Setting
+            Compliant      = if ($compliant) {"Yes"} else {"No"}
+        }
+    }
+    else {
+        $results += [PSCustomObject]@{
+            Subcategory    = $base.Subcategory
+            Expected       = $base.ExpectedSetting
+            Actual         = "Not Found"
+            Compliant      = "No"
+        }
+    }
+}
+
+# Output results
+$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$outFile = "$env:USERPROFILE\Desktop\AuditPolicyReport_$timestamp.csv"
+
+$results | Export-Csv -NoTypeInformation -Path $outFile
+Write-Host "Audit verification complete. Report saved to $outFile"
