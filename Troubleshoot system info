@@ -1,0 +1,12 @@
+<# 
+.synopsys
+Gathers system information for troubleshooting
+.description
+Collects system, OS, hardware, netwrok and storage details and saves them into a timestamped report file
+#>
+# create the file output
+$computerName = $env:COMPUTERNAME
+$Date = Get-date -format "yyyy-MM-dd_HHmmss"
+$Outputfile = C:\Temp\SystemReport_$computerName_$Date.txt"
+
+Get-ComputerInfo | Export-Csv -Path "C:\Temp\SystemInfo.csv" -NoTypeInformation
